@@ -9,16 +9,10 @@ namespace MandelbrotBrowser
 
     // Represents a complext number
     // a + bi
-    public class aComplexNumber
+    public struct aComplexNumber
     {
         private double _real;
         private double _imaginary;
-
-        public aComplexNumber()
-        {
-            _real = 0;
-            _imaginary = 0;
-        }
 
         public aComplexNumber(double r, double i)
         {
@@ -72,8 +66,23 @@ namespace MandelbrotBrowser
         // m = |a+bi|
         public double Magnitude()
         {
-            return Math.Sqrt((Real * Real) + (Imaginary + Imaginary));
+            return Math.Sqrt((Real * Real) + (Imaginary * Imaginary));
         }
+
+        // Divergence (Mandelbrot Set)
+        // This test for divergence of the complex number.
+        // The complex number is said to diverge if:
+        // |Z| >= 2
+        //
+        public bool IsDivergent()
+        {
+            // We *could* just do the straightforward test for the magnitude
+            // But there is a more efficient way.
+            // return Magnitude() > 2;
+
+            return ((Real * Real) + (Imaginary * Imaginary)) > 4;
+        }
+
 
         // Displays a string representation of our complex number
         public override string ToString()
