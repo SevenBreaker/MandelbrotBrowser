@@ -481,16 +481,15 @@ namespace MandelbrotBrowser
                 _startZoomPoint.X = e.X;
                 _startZoomPoint.Y = e.Y;
 
-                if (Control.ModifierKeys.HasFlag(Keys.Control))
+                if(Control.ModifierKeys.HasFlag(Keys.Control))
                 {
-                    _isPanning = true;
-
-                    _panningbitmap = (Bitmap)PictureBox.Image.Clone();
-                    _panninggrapics = PictureBox.CreateGraphics();
+                    _isZooming = true;
                 }
                 else
                 {
-                    _isZooming = true;
+                    _isPanning = true;
+                    _panningbitmap = (Bitmap)PictureBox.Image.Clone();
+                    _panninggrapics = PictureBox.CreateGraphics();
                 }
             }
         }
