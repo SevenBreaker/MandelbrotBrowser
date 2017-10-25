@@ -4,7 +4,9 @@ using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -13,8 +15,9 @@ namespace MandelbrotBrowser
 {
     public enum PaletteType
     {
-        GreyScalePalette = 0,
-        RedBlueShift = 1
+        Hues = 0,
+        GreyScalePalette = 1,
+        RedBlueShift = 2
     }
 
     public partial class Form1 : Form
@@ -31,6 +34,11 @@ namespace MandelbrotBrowser
         private bool _isRendering;      // indicates current rendering
         private bool _isResizing;
 
+        // panning
+        private Bitmap _panningbitmap = null;
+        private Graphics _panninggrapics = null;
+        private bool _isPanning = false;
+
         // mouse drag resize
         private bool _isZooming = false;
         private Point _startZoomPoint = Point.Empty;
@@ -45,14 +53,19 @@ namespace MandelbrotBrowser
         {
             InitializeComponent();
 
+            // set the form title
+            Text += " - " + FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion;
+
             _isRendering = false;
             _isResizing = false;
             _colourtable = new List<Color>(_palettesize);
             toolStripProgressBar.Visible = false;
 
             // colour palettes
-            int pos = comboBoxPalette.Items.Add("Greyscale");
-            pos = comboBoxPalette.Items.Add("Red-Blue Shift");
+            comboBoxPalette.Items.Add("Hues");
+            comboBoxPalette.Items.Add("Greyscale");
+            comboBoxPalette.Items.Add("Red-Blue Shift");
+
             SetDefaultValues();
         }
         
@@ -87,7 +100,7 @@ namespace MandelbrotBrowser
             _maxX = 1.0;
             _minY = -1.8;
             _maxY = 1.8;
-            _Threshold = 20;
+            _Threshold = 50;
 
             _Width = PictureBox.Width;
             _Height = PictureBox.Height;
@@ -130,10 +143,28 @@ namespace MandelbrotBrowser
                     }
                     break;
                 case (int)PaletteType.GreyScalePalette:
-                default:
                     {
                         for (int i = 0; i < _palettesize; i++)
                             _colourtable.Add(Color.FromArgb(i, i, i));
+                    }
+                    break;
+                case (int)PaletteType.Hues:
+                default:
+                    {
+                        double r;
+                        double g;
+                        double b;
+                        double h;
+                        double s = 1.0;
+                        double v = 1.0;
+                        Color clr = new Color();
+
+                        for (int i = 0; i < _palettesize; i++)
+                        {
+                            h = ((double)i / _palettesize);
+                            clr.HSVToRGB(h, s, v, out r, out g, out b);
+                            _colourtable.Add(Color.FromArgb((int)(r*255), (int)(g*255), (int)(b*255)));
+                        }
                     }
                     break;
             }
@@ -154,8 +185,30 @@ namespace MandelbrotBrowser
             if (_isResizing)
             {
                 _isResizing = false;
+
+                Rectangle srcRect = new Rectangle(0, 0, _Width, _Height);
+
                 _Width = PictureBox.Width;
                 _Height = PictureBox.Height;
+
+                // stretch zoom
+                if (PictureBox.Image != null)
+                {
+                    Bitmap bitmap = new Bitmap(_Width, _Height, PixelFormat.Format32bppPArgb);
+                    using (Graphics g = Graphics.FromImage((Image)bitmap))
+                    {
+                        g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                        g.DrawImage(PictureBox.Image, PictureBox.ClientRectangle, srcRect, GraphicsUnit.Pixel);
+                    }
+                    PictureBox.Image.Dispose();
+
+                    PictureBox.Image = bitmap;
+                    PictureBox.Invalidate();
+
+                    // HORRIBLE !!
+                    // Need to use async/await
+                    Application.DoEvents();
+                }
 
                 Render();
             }
@@ -279,6 +332,7 @@ namespace MandelbrotBrowser
             PictureBox.Image = bitmap;
             graphics.Dispose();
 
+
             // finished rendering
             _isRendering = false;
 
@@ -286,6 +340,26 @@ namespace MandelbrotBrowser
             stopwatch.Stop();
             statusLabel.Text = $"Rendered in: {stopwatch.Elapsed.TotalSeconds:0.#} seconds";
          }
+
+
+        /**************************************************************************
+        * Draws the coordinates 
+        ***************************************************************************/
+        private void DrawComplexCoordinates()
+        {
+            string tlLabel = $"({_minX:0.####}, {_maxY:0.####})";
+            string brLabel = $"({_maxX:0.####}, {_minY:0.####})";
+
+            using (Graphics graphics = PictureBox.CreateGraphics())
+            using (Brush brush = new SolidBrush(Color.Red))
+            using (Font font = new Font("Calibri", 8f, FontStyle.Regular, GraphicsUnit.Pixel))
+            {
+                SizeF rightlabelsize = graphics.MeasureString(brLabel, font);
+
+                graphics.DrawString(tlLabel, font, brush, 0, 0);
+                graphics.DrawString(brLabel, font, brush, _Width - rightlabelsize.Width, _Height - rightlabelsize.Height);
+            }
+        }
 
 
         /// <summary>
@@ -310,41 +384,6 @@ namespace MandelbrotBrowser
         /// </summary>
         private void PictureBox_MouseDoubleClick(object sender, MouseEventArgs e)
         {
-            // ZOOM In
-            if(e.Button == MouseButtons.Left)
-            {
-                int pointX = e.X;
-                int pointY = e.Y;
-                aComplexNumber complexPoint = new aComplexNumber();
-                TransformCoord(pointX, pointY, ref complexPoint);
-
-                double windowWidthCentre = Math.Abs(_maxX - _minX) / 2.0;
-                double windowHeightCentre = Math.Abs(_maxY - _minY) / 2.0;
-
-                // Zoom in
-                windowHeightCentre /= 2;
-                windowWidthCentre /= 2;
-
-                _minX = complexPoint.Real - windowWidthCentre;
-                _maxX = complexPoint.Real + windowWidthCentre;
-                _minY = complexPoint.Imaginary - windowHeightCentre;
-                _maxY = complexPoint.Imaginary + windowHeightCentre;
-
-                /****************************************************
-                // can we copy this window and stretch
-                Bitmap bitmap = new Bitmap(_Width, _Height, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
-                using (Graphics g = Graphics.FromImage((Image)bitmap))
-                {
-                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                    g.DrawImage(PictureBox.Image, 0, 0, size.Width, size.Height);
-                }
-                if (PictureBox.Image != null)
-                    PictureBox.Image.Dispose();
-                PictureBox.Image = bitmap;
-                *****************************************************/
-
-                Render();
-            }
         }
 
         /// <summary>
@@ -352,9 +391,45 @@ namespace MandelbrotBrowser
         /// </summary>
         /// <param name="centrePoint"></param>
         /// <param name="zoomFactor"></param>
-        private void Zoom(aComplexNumber centrePoint, float zoomFactor)
+        private void Zoom(Rectangle window)
         {
-            throw new NotImplementedException();
+            // don't bother zooming if the size is too small.
+            if (window.Height < 10 || window.Width < 10)
+                return;
+
+            // stretch zoom
+            if (PictureBox.Image != null)
+            {
+                Bitmap bitmap = new Bitmap(_Width, _Height, PixelFormat.Format32bppPArgb);
+                using (Graphics g = Graphics.FromImage((Image)bitmap))
+                {
+                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                    g.DrawImage(PictureBox.Image, PictureBox.ClientRectangle, window, GraphicsUnit.Pixel);
+                }
+                PictureBox.Image.Dispose();
+
+                PictureBox.Image = bitmap;
+                PictureBox.Invalidate();
+
+                // HORRIBLE !!
+                // Need to use async/await
+                Application.DoEvents();
+            }
+
+            // calculate new window and render
+
+            aComplexNumber tlPoint = new aComplexNumber();
+            aComplexNumber brPoint = new aComplexNumber();
+
+            TransformCoord(window.X, window.Y, ref tlPoint);
+            TransformCoord(window.Right, window.Bottom, ref brPoint);
+
+            _minX = tlPoint.Real;
+            _maxX = brPoint.Real;
+            _minY = brPoint.Imaginary; 
+            _maxY = tlPoint.Imaginary;
+
+            Render();      
         }
 
         /// <summary>
@@ -382,6 +457,15 @@ namespace MandelbrotBrowser
                 return;
             }
 
+            if(_isPanning)
+            {
+                Point endZoomPoint = new Point(e.X, e.Y);
+
+                _panninggrapics.FillRectangle(new SolidBrush(Color.White), PictureBox.ClientRectangle);
+                _panninggrapics.DrawImage(_panningbitmap, (endZoomPoint.X - _startZoomPoint.X), (endZoomPoint.Y - _startZoomPoint.Y));
+                return;
+            }
+
             aComplexNumber C = new aComplexNumber();
             TransformCoord(e.X, e.Y, ref C);
 
@@ -396,7 +480,18 @@ namespace MandelbrotBrowser
             {
                 _startZoomPoint.X = e.X;
                 _startZoomPoint.Y = e.Y;
-                _isZooming = true;
+
+                if (Control.ModifierKeys.HasFlag(Keys.Control))
+                {
+                    _isPanning = true;
+
+                    _panningbitmap = (Bitmap)PictureBox.Image.Clone();
+                    _panninggrapics = PictureBox.CreateGraphics();
+                }
+                else
+                {
+                    _isZooming = true;
+                }
             }
         }
 
@@ -404,10 +499,48 @@ namespace MandelbrotBrowser
         {
             if (e.Button == MouseButtons.Left)
             {
-                _isZooming = false;
-                Point endZoomPoint = new Point(e.X, e.Y);
+                if (_isZooming)
+                {
+                    _isZooming = false;
+                    Point endZoomPoint = new Point(e.X, e.Y);
 
-                // Call zoom function
+                    // Call zoom function
+                    Rectangle window = new Rectangle(
+                                        Math.Min(_startZoomPoint.X, endZoomPoint.X),
+                                        Math.Min(_startZoomPoint.Y, endZoomPoint.Y),
+                                        Math.Abs(_startZoomPoint.X - endZoomPoint.X),
+                                        Math.Abs(_startZoomPoint.Y - endZoomPoint.Y));
+
+                    Zoom(window);
+                }
+                else if(_isPanning)
+                {
+                    _isPanning = false;
+                    Point endZoomPoint = new Point(e.X, e.Y);
+
+                    _panninggrapics?.Dispose();
+                    _panningbitmap?.Dispose();
+                    _panningbitmap = null;
+                    _panninggrapics = null;
+
+                    // calculate distance moved on each axis.
+                    aComplexNumber start = new aComplexNumber();
+                    aComplexNumber end = new aComplexNumber();
+
+                    TransformCoord(_startZoomPoint.X, _startZoomPoint.Y, ref start);
+                    TransformCoord(endZoomPoint.X, endZoomPoint.Y, ref end);
+
+                    double deltaX = end.Real - start.Real;
+                    double deltaY = end.Imaginary - start.Imaginary;
+
+                    _minX -= deltaX;
+                    _maxX -= deltaX;
+                    _minY -= deltaY;
+                    _maxY -= deltaY;
+
+                    Render();
+                }
+
             }
         }
 
@@ -424,8 +557,21 @@ namespace MandelbrotBrowser
                         e.Graphics.FillRectangle(_ZoomSelectionBrush, _ZoomWindow);
                     }
                 }
+                return;
             }
 
+            string tlLabel = $"({_minX:0.####}, {_maxY:0.####})";
+            string brLabel = $"({_maxX:0.####}, {_minY:0.####})";
+
+            using (Brush brush = new SolidBrush(Color.White))
+            using (Font font = new Font("Calibri", 14f, FontStyle.Regular, GraphicsUnit.Pixel))
+            {
+                SizeF rightlabelsize = e.Graphics.MeasureString(brLabel, font);
+
+                e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+                e.Graphics.DrawString(tlLabel, font, brush, 0, 0);
+                e.Graphics.DrawString(brLabel, font, brush, _Width - rightlabelsize.Width, _Height - rightlabelsize.Height);
+            }
         }
     }
 }
