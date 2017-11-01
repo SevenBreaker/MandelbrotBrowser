@@ -15,40 +15,35 @@ namespace MandelbrotBrowser
 {
     public enum PaletteType
     {
-        Hues = 0,
-        GreyScalePalette = 1,
-        RedBlueShift = 2
+        Dark = 0,
+        Hues = 1
     }
-
+    
     public partial class Form1 : Form
     {
+        private MandelbrotPlane _complexWindow = new MandelbrotPlane(); // Mandelbrot complex window
+        private Bitmap _canvas;                                         // bitmap that we will be drawing our images
 
-        private double _minX;
-        private double _maxX;
-        private double _minY;
-        private double _maxY;
-        private int _Threshold;         // threshold iteration 
-
-        private int _Height;            // height of view window
-        private int _Width;             // width of view window
         private bool _isRendering;      // indicates current rendering
-        private bool _isResizing;
+        private bool _isResizing;       //
 
-        // panning
-        private Bitmap _panningbitmap = null;
-        private Graphics _panninggrapics = null;
+        // mouse drag/move
+        private Graphics _panninggrapics;
         private bool _isPanning = false;
-
-        // mouse drag resize
         private bool _isZooming = false;
-        private Point _startZoomPoint = Point.Empty;
+        private Point _startPoint = Point.Empty;
         private Rectangle _ZoomWindow;
-        private Brush _ZoomSelectionBrush = new SolidBrush(Color.FromArgb(128, 72, 145, 220));
+        private Pen _ZoomSelectionPen = new Pen(Color.Gold);
 
 
         private int _palettesize = 256;
         private List<Color> _colourtable;
 
+
+
+        /**************************************************************************
+        * Main Form Class 
+        ***************************************************************************/
         public Form1()
         {
             InitializeComponent();
@@ -56,15 +51,17 @@ namespace MandelbrotBrowser
             // set the form title
             Text += " - " + FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion;
 
+            //
+            _canvas = new Bitmap(myPictureBox.Width, myPictureBox.Height, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+
             _isRendering = false;
             _isResizing = false;
             _colourtable = new List<Color>(_palettesize);
             toolStripProgressBar.Visible = false;
 
             // colour palettes
+            comboBoxPalette.Items.Add("Dark");
             comboBoxPalette.Items.Add("Hues");
-            comboBoxPalette.Items.Add("Greyscale");
-            comboBoxPalette.Items.Add("Red-Blue Shift");
 
             SetDefaultValues();
         }
@@ -82,12 +79,13 @@ namespace MandelbrotBrowser
             //Render();
         }
 
-        //
+        // Button Handler: Render image
         private void buttonRender_Click(object sender, EventArgs e)
         {
             Render();
         }
 
+        // Button Handler: Reset to default
         private void buttonReset_Click(object sender, EventArgs e)
         {
             SetDefaultValues();
@@ -96,17 +94,9 @@ namespace MandelbrotBrowser
 
         private void SetDefaultValues()
         {
-            _minX = -2.4;
-            _maxX = 1.0;
-            _minY = -1.8;
-            _maxY = 1.8;
-            _Threshold = 50;
-
-            _Width = PictureBox.Width;
-            _Height = PictureBox.Height;
-
+            _complexWindow = new MandelbrotPlane();
             comboBoxPalette.SelectedIndex = 0;
-            textBoxThreshold.Text = _Threshold.ToString();
+            textBoxThreshold.Text = _complexWindow.MaxThreshold.ToString();
         }
 
         private void comboBoxPalette_SelectedIndexChanged(object sender, EventArgs e)
@@ -115,6 +105,8 @@ namespace MandelbrotBrowser
             BuildColourPalette();
         }
 
+        // Build a look table of our colour palette. We will use the iteration count to 
+        // find the colour that we will use to set the screen pixel.
         private void BuildColourPalette()
         {
             _colourtable.Clear();
@@ -122,6 +114,7 @@ namespace MandelbrotBrowser
 
             switch(whichPalette)
             {
+                /*
                 case (int)PaletteType.RedBlueShift:
                     {
                         Color start = Color.DarkRed;
@@ -141,8 +134,8 @@ namespace MandelbrotBrowser
                             _colourtable.Add(Color.FromArgb((int)(fR),(int)fG, (int)fB));
                         }
                     }
-                    break;
-                case (int)PaletteType.GreyScalePalette:
+                    break;*/
+                case (int)PaletteType.Dark:
                     {
                         for (int i = 0; i < _palettesize; i++)
                             _colourtable.Add(Color.FromArgb(i, i, i));
@@ -177,161 +170,120 @@ namespace MandelbrotBrowser
             _isResizing = true;
         }
 
-        /// <summary>
-        /// Render the image if the user has resized the window
-        /// </summary>
+        /**************************************************************************
+        * Render the image, if window resizing is finished
+        ***************************************************************************/
         private void Form1_ResizeEnd(object sender, EventArgs e)
         {
             if (_isResizing)
             {
                 _isResizing = false;
 
-                Rectangle srcRect = new Rectangle(0, 0, _Width, _Height);
-
-                _Width = PictureBox.Width;
-                _Height = PictureBox.Height;
-
                 // stretch zoom
-                if (PictureBox.Image != null)
+                Bitmap bitmap = new Bitmap(myPictureBox.Width, myPictureBox.Height, PixelFormat.Format32bppPArgb);
+                using (Graphics g = Graphics.FromImage((Image)bitmap))
                 {
-                    Bitmap bitmap = new Bitmap(_Width, _Height, PixelFormat.Format32bppPArgb);
-                    using (Graphics g = Graphics.FromImage((Image)bitmap))
-                    {
-                        g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                        g.DrawImage(PictureBox.Image, PictureBox.ClientRectangle, srcRect, GraphicsUnit.Pixel);
-                    }
-                    PictureBox.Image.Dispose();
+                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Default;
+                    g.DrawImage(_canvas, myPictureBox.ClientRectangle, 0, 0, _canvas.Width, _canvas.Height, GraphicsUnit.Pixel);
 
-                    PictureBox.Image = bitmap;
-                    PictureBox.Invalidate();
+                    if (_canvas != null)
+                        _canvas.Dispose();
 
-                    // HORRIBLE !!
-                    // Need to use async/await
-                    Application.DoEvents();
+                    _canvas = (Bitmap)bitmap.Clone();
                 }
 
+                myPictureBox.Invalidate();
                 Render();
             }
         }
 
-        /// <summary>
-        /// Main Rendering Code
-        /// </summary>
-        /// <remarks>
-        /// 
-        /// </remarks>
+
+
+        /**************************************************************************
+        * Main Rendering code 
+        ***************************************************************************/
         private void Render()
         {
             // Get the current threshold value in the edit box.
             // We need to validate this and alert the user if wrong.
-            if( !Int32.TryParse( textBoxThreshold.Text, out _Threshold ) )
+            int maxthreshold;
+            if( !Int32.TryParse( textBoxThreshold.Text, out maxthreshold ) )
             {
                 MessageBox.Show("Please enter a valid numeric threshold", "Invalid Input", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
+            _complexWindow.MaxThreshold = maxthreshold;
 
             // Prevents other updates from happening while we are drawing to the screen
             _isRendering = true;
-
-            Bitmap bitmap = new Bitmap(_Width, _Height, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
-            Graphics graphics = PictureBox.CreateGraphics();
 
             // start progress
             Stopwatch stopwatch = new Stopwatch();
             toolStripProgressBar.Value = 0;
             toolStripProgressBar.Visible = true;
+            stopwatch.Start();  // start timer
 
-            // clear existing screen
-            /*graphics.FillRectangle(new SolidBrush(Color.White), 0, 0, Width, Height);*/
+            // Here we are using an progress update pattern that works for async/await models.
+            // see: https://blog.stephencleary.com/2012/02/reporting-progress-from-async-tasks.html
+            //
+            var calcprogress = new Progress<int>((p) => toolStripProgressBar.Value = p);
 
-            aComplexNumber Z = new aComplexNumber();
-            aComplexNumber C = new aComplexNumber();
+            bool isSymmetric = Math.Abs(_complexWindow.MinY) == Math.Abs(_complexWindow.MaxY);
 
-            stopwatch.Start();
-
-            for (int y = 0; y < _Height; y++)
+            for (int y = 0; y < myPictureBox.Height; y++)
             {
-                for(int x =0; x < _Width; x++)
+                for(int x =0; x < myPictureBox.Width; x++)
                 {
-                    // Set initial value of Zn to 0+0i
-                    Z.Real = 0;
-                    Z.Imaginary = 0;
+                    int iterationTaken = TestForMandelbrotSetAsync(x, y);
 
-                    // get the imaginary coordinate that is represented by our current position
-                    TransformCoord(x, y, ref C);
-
-                    // To test for divergence, we perform an iterative loop of the form:
-                    // Zn+1 = Zn^2 + C
-                    //
-                    // If the magnitude of Z goes above 2, then it is within the Mandelbrot set.
-                    double ZrSq = Z.Real * Z.Real;
-                    double ZiSq = Z.Imaginary * Z.Imaginary;
-
-                    int iteration = 0;
-                    for (iteration = 0; iteration < _Threshold; iteration++)
-                    {
-#if false
-                        aComplexNumber Zn = Z.Squared() + C;
-                        if (Zn.IsDivergent())
-                            break;
-
-                        Z = Zn;
-#endif
-
-                        // optimisation of above code
-
-                        // Test for divergence
-                        // No need to do the square root for a little perf. increase.
-                        if (ZrSq + ZiSq > 4.0)
-                            break;
-
-                        Z.Imaginary = Z.Real * Z.Imaginary;
-                        Z.Imaginary += Z.Imaginary;
-                        Z.Imaginary += C.Imaginary;
-
-                        Z.Real = ZrSq - ZiSq + C.Real;
-
-                        ZrSq = Z.Real * Z.Real;
-                        ZiSq = Z.Imaginary * Z.Imaginary;
-                    }
-
-                    if (iteration >= _Threshold)
+                    if (iterationTaken == 0)
                     {
                         // point is in the mandelbrot set.
                         // Color to the first item in our color table.
-                        bitmap.SetPixel(x, y, Color.Black);
+                        _canvas.SetPixel(x, y, Color.Black);
+
+                        if(isSymmetric)
+                            _canvas.SetPixel(x, myPictureBox.Height - y - 1, Color.Black);
+
                     }
                     else
                     {
                         // Retrieve the colour that will represent this pixel.
                         // This will be an index into our colour table, based on the value of our cycle value.
-                        int colourindex = (iteration * (_palettesize - 1)) / _Threshold;
+                        int colourindex = (iterationTaken * (_palettesize - 1)) / _complexWindow.MaxThreshold;
                         Debug.Assert(colourindex >= 0);
                         Debug.Assert(colourindex < _palettesize);
 
                         if (colourindex > _palettesize)
                             colourindex = _palettesize - 1;
 
-                        bitmap.SetPixel(x, y, _colourtable[colourindex]);
+                        _canvas.SetPixel(x, y, _colourtable[colourindex]);
+
+                        if (isSymmetric)
+                            _canvas.SetPixel(x, myPictureBox.Height - y - 1, _colourtable[colourindex]);
                     }
+
+                } // for(int x =0; x < myPictureBox.Width; x++)
+
+                // Progress report
+                int perc = ((myPictureBox.Width * y) * 100) / (myPictureBox.Height * myPictureBox.Width);
+                ((IProgress<int>)calcprogress).Report(perc);
+
+                myPictureBox.Invalidate();
+                Application.DoEvents();
+
+                // Stop if we are doing a mirror rendering
+                if( isSymmetric )
+                {
+                    if (y >= myPictureBox.Height / 2)
+                        break;
                 }
 
-                // calculate and show progress
-                graphics.DrawImage(bitmap, 0, 0);
+            } // for (int y = 0; y < myPictureBox.Height; y++)
 
-                int perc = ((_Width * y) * 100) / (_Height * _Width);
-                toolStripProgressBar.Value = perc;
-            }
-
+            // end progress update
             toolStripProgressBar.Value = 100;
             toolStripProgressBar.Visible = false;
-
-            if (PictureBox.Image != null)
-                PictureBox.Image.Dispose();
-
-            PictureBox.Image = bitmap;
-            graphics.Dispose();
-
 
             // finished rendering
             _isRendering = false;
@@ -339,58 +291,99 @@ namespace MandelbrotBrowser
             // display elapsed time.
             stopwatch.Stop();
             statusLabel.Text = $"Rendered in: {stopwatch.Elapsed.TotalSeconds:0.#} seconds";
-         }
-
-
-        /**************************************************************************
-        * Draws the coordinates 
-        ***************************************************************************/
-        private void DrawComplexCoordinates()
-        {
-            string tlLabel = $"({_minX:0.####}, {_maxY:0.####})";
-            string brLabel = $"({_maxX:0.####}, {_minY:0.####})";
-
-            using (Graphics graphics = PictureBox.CreateGraphics())
-            using (Brush brush = new SolidBrush(Color.Red))
-            using (Font font = new Font("Calibri", 8f, FontStyle.Regular, GraphicsUnit.Pixel))
-            {
-                SizeF rightlabelsize = graphics.MeasureString(brLabel, font);
-
-                graphics.DrawString(tlLabel, font, brush, 0, 0);
-                graphics.DrawString(brLabel, font, brush, _Width - rightlabelsize.Width, _Height - rightlabelsize.Height);
-            }
+            myPictureBox.Invalidate();
         }
 
 
-        /// <summary>
-        /// Transform the given screen coordinate to the represented complex number.
-        /// </summary>
+        /**************************************************************************
+        *  Test the given coordinate to see if it is inside the Mandelbrot set
+        *  
+        *  Returns 0 if it is part of the set.
+        *  If not, returns the number of tries reached.
+        *  
+        ***************************************************************************/
+        private int TestForMandelbrotSetAsync(int x, int y)
+        {
+            int iterationsTaken = 0;
+            aComplexNumber Z = new aComplexNumber();
+            aComplexNumber C = new aComplexNumber();
+
+            // Set initial value of Zn to 0+0i
+            Z.Real = 0;
+            Z.Imaginary = 0;
+
+            // get the imaginary coordinate that is represented by our current position
+            TransformCoord(x, y, ref C);
+
+            // To test for divergence, we perform an iterative loop of the form:
+            // Zn+1 = Zn^2 + C
+            //
+            // If the magnitude of Z goes above 2, then it is within the Mandelbrot set.
+            double ZrSq = Z.Real * Z.Real;
+            double ZiSq = Z.Imaginary * Z.Imaginary;
+
+            for (iterationsTaken = 0; iterationsTaken < _complexWindow.MaxThreshold; iterationsTaken++)
+            {
+                /***********************************
+                aComplexNumber Zn = Z.Squared() + C;
+                if (Zn.IsDivergent())
+                    break;
+                Z = Zn;
+                ***********************************/
+
+                // optimisation of above code
+                // Test for divergence
+                // No need to do the square root for a little perf. increase.
+                if (ZrSq + ZiSq > 4.0)
+                    break;
+
+                Z.Imaginary = Z.Real * Z.Imaginary;
+                Z.Imaginary += Z.Imaginary;
+                Z.Imaginary += C.Imaginary;
+
+                Z.Real = ZrSq - ZiSq + C.Real;
+
+                ZrSq = Z.Real * Z.Real;
+                ZiSq = Z.Imaginary * Z.Imaginary;
+            }
+
+            if (iterationsTaken >= _complexWindow.MaxThreshold)
+                return 0;
+
+            // Not inside the Mandelbrot set
+            return iterationsTaken;
+        }
+
+        /**************************************************************************
+        * Transform the given screen coordinate to the represented complex number
+        ***************************************************************************/
         private void TransformCoord(Point screenPoint, ref aComplexNumber complexPoint)
         {
             TransformCoord(screenPoint.X, screenPoint.Y, ref complexPoint);
         }
 
-        /// <summary>
-        /// </summary>
+
+        /**************************************************************************
+        * Maps the given screen position to the complex plane being rendered 
+        ***************************************************************************/
         private void TransformCoord(int x, int y, ref aComplexNumber complexPoint)
         {
-            complexPoint.Real = ((x * (_maxX - _minX)) / _Width) + _minX;
-            complexPoint.Imaginary = (((_Height - y) * (_maxY - _minY)) / _Height) + _minY;
+            complexPoint.Real = ((x * (_complexWindow.MaxX - _complexWindow.MinX)) / myPictureBox.Width) + _complexWindow.MinX;
+            complexPoint.Imaginary = (((myPictureBox.Height - y) * (_complexWindow.MaxY - _complexWindow.MinY)) / myPictureBox.Height) + _complexWindow.MinY;
         }
 
 
-        /// <summary>
-        /// Mouse dbl-click handler
-        /// </summary>
+        /**************************************************************************
+        * Mouse dbl-click handler 
+        ***************************************************************************/
         private void PictureBox_MouseDoubleClick(object sender, MouseEventArgs e)
         {
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="centrePoint"></param>
-        /// <param name="zoomFactor"></param>
+
+        /**************************************************************************
+        *  
+        ***************************************************************************/
         private void Zoom(Rectangle window)
         {
             // don't bother zooming if the size is too small.
@@ -398,47 +391,43 @@ namespace MandelbrotBrowser
                 return;
 
             // stretch zoom
-            if (PictureBox.Image != null)
+            using (Bitmap bitmap = new Bitmap(myPictureBox.Width, myPictureBox.Height, PixelFormat.Format32bppPArgb))
+            using (Graphics g = Graphics.FromImage((Image)bitmap))
             {
-                Bitmap bitmap = new Bitmap(_Width, _Height, PixelFormat.Format32bppPArgb);
-                using (Graphics g = Graphics.FromImage((Image)bitmap))
-                {
-                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                    g.DrawImage(PictureBox.Image, PictureBox.ClientRectangle, window, GraphicsUnit.Pixel);
-                }
-                PictureBox.Image.Dispose();
-
-                PictureBox.Image = bitmap;
-                PictureBox.Invalidate();
-
-                // HORRIBLE !!
-                // Need to use async/await
-                Application.DoEvents();
+                g.DrawImage(_canvas, myPictureBox.ClientRectangle, window, GraphicsUnit.Pixel);
             }
+            myPictureBox.Invalidate(true);
+
+            // HORRIBLE !!
+            // Need to use async/await
+            Application.DoEvents();
 
             // calculate new window and render
-
             aComplexNumber tlPoint = new aComplexNumber();
             aComplexNumber brPoint = new aComplexNumber();
 
             TransformCoord(window.X, window.Y, ref tlPoint);
             TransformCoord(window.Right, window.Bottom, ref brPoint);
 
-            _minX = tlPoint.Real;
-            _maxX = brPoint.Real;
-            _minY = brPoint.Imaginary; 
-            _maxY = tlPoint.Imaginary;
+            _complexWindow.MinX = tlPoint.Real;
+            _complexWindow.MaxX = brPoint.Real;
+            _complexWindow.MinY = brPoint.Imaginary;
+            _complexWindow.MaxY = tlPoint.Imaginary;
 
             Render();      
         }
 
-        /// <summary>
-        /// Displays the coordinates on the screen
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
+        /**************************************************************************
+        * Handles the mouse movement event 
+        * 
+        * This handler has a few tasks.
+        * . Handles image movement, if we are panning
+        * . Updates zoom coordinates, if we are zooming in.
+        * 
+        ***************************************************************************/
         private void PictureBox_MouseMove(object sender, MouseEventArgs e)
         {
+            // If we are still rendering our image, then do no continue
             if (_isRendering)
                 return;
 
@@ -446,23 +435,23 @@ namespace MandelbrotBrowser
             {
                 Point endZoomPoint = new Point(e.X, e.Y);
 
-                Region r = new Region(PictureBox.DisplayRectangle);
                 _ZoomWindow = new Rectangle(
-                                            Math.Min(_startZoomPoint.X, endZoomPoint.X),
-                                            Math.Min(_startZoomPoint.Y, endZoomPoint.Y),
-                                            Math.Abs(_startZoomPoint.X - endZoomPoint.X),
-                                            Math.Abs(_startZoomPoint.Y - endZoomPoint.Y));
+                                            Math.Min(_startPoint.X, endZoomPoint.X),
+                                            Math.Min(_startPoint.Y, endZoomPoint.Y),
+                                            Math.Abs(_startPoint.X - endZoomPoint.X),
+                                            Math.Abs(_startPoint.Y - endZoomPoint.Y));
 
-                PictureBox.Invalidate();
+                myPictureBox.Invalidate();
                 return;
             }
 
+            // we are panning our image, so move to the new position
             if(_isPanning)
             {
-                Point endZoomPoint = new Point(e.X, e.Y);
+                Point endPoint = new Point(e.X, e.Y);
 
-                _panninggrapics.FillRectangle(new SolidBrush(Color.White), PictureBox.ClientRectangle);
-                _panninggrapics.DrawImage(_panningbitmap, (endZoomPoint.X - _startZoomPoint.X), (endZoomPoint.Y - _startZoomPoint.Y));
+                _panninggrapics.FillRectangle(new SolidBrush(Color.DimGray), myPictureBox.ClientRectangle);
+                _panninggrapics.DrawImage(_canvas, (endPoint.X - _startPoint.X), (endPoint.Y - _startPoint.Y));
                 return;
             }
 
@@ -470,16 +459,22 @@ namespace MandelbrotBrowser
             TransformCoord(e.X, e.Y, ref C);
 
             // output the coordinates to the screen
-            statusLabel.Text = $"x: {C.Real:0.###} y:{C.Imaginary:0.###}";
+            statusLabel.Text = $"x: {C.Real:0.####} y:{C.Imaginary:0.####}";
         }
 
 
+        /**************************************************************************
+        * Handles the mouse button down event 
+        * 
+        * We use this handler to start a panning or zoom action.
+        ***************************************************************************/
         private void PictureBox_MouseDown(object sender, MouseEventArgs e)
         {
             if(e.Button == MouseButtons.Left)
             {
-                _startZoomPoint.X = e.X;
-                _startZoomPoint.Y = e.Y;
+                // set our starting coordinate
+                _startPoint.X = e.X;
+                _startPoint.Y = e.Y;
 
                 if(Control.ModifierKeys.HasFlag(Keys.Control))
                 {
@@ -487,13 +482,22 @@ namespace MandelbrotBrowser
                 }
                 else
                 {
+                    // We are panning
+                    // create a new graphics object of our PictureBox control. We will use this
+                    // to continuously reposition our existing canvas bitmap.
+                    _panninggrapics?.Dispose();
+                    _panninggrapics = myPictureBox.CreateGraphics();
                     _isPanning = true;
-                    _panningbitmap = (Bitmap)PictureBox.Image.Clone();
-                    _panninggrapics = PictureBox.CreateGraphics();
                 }
             }
         }
 
+
+        /**************************************************************************
+        * Handler for the mouse button up event 
+        * 
+        * Use this event to update our image if we have been zooming or panning.
+        ***************************************************************************/
         private void PictureBox_MouseUp(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left)
@@ -505,37 +509,43 @@ namespace MandelbrotBrowser
 
                     // Call zoom function
                     Rectangle window = new Rectangle(
-                                        Math.Min(_startZoomPoint.X, endZoomPoint.X),
-                                        Math.Min(_startZoomPoint.Y, endZoomPoint.Y),
-                                        Math.Abs(_startZoomPoint.X - endZoomPoint.X),
-                                        Math.Abs(_startZoomPoint.Y - endZoomPoint.Y));
+                                        Math.Min(_startPoint.X, endZoomPoint.X),
+                                        Math.Min(_startPoint.Y, endZoomPoint.Y),
+                                        Math.Abs(_startPoint.X - endZoomPoint.X),
+                                        Math.Abs(_startPoint.Y - endZoomPoint.Y));
 
                     Zoom(window);
                 }
-                else if(_isPanning)
+                else if (_isPanning)
                 {
                     _isPanning = false;
-                    Point endZoomPoint = new Point(e.X, e.Y);
+                    Point endPoint = new Point(e.X, e.Y);
 
                     _panninggrapics?.Dispose();
-                    _panningbitmap?.Dispose();
-                    _panningbitmap = null;
                     _panninggrapics = null;
 
                     // calculate distance moved on each axis.
                     aComplexNumber start = new aComplexNumber();
                     aComplexNumber end = new aComplexNumber();
 
-                    TransformCoord(_startZoomPoint.X, _startZoomPoint.Y, ref start);
-                    TransformCoord(endZoomPoint.X, endZoomPoint.Y, ref end);
+                    TransformCoord(_startPoint.X, _startPoint.Y, ref start);
+                    TransformCoord(endPoint.X, endPoint.Y, ref end);
 
                     double deltaX = end.Real - start.Real;
                     double deltaY = end.Imaginary - start.Imaginary;
 
-                    _minX -= deltaX;
-                    _maxX -= deltaX;
-                    _minY -= deltaY;
-                    _maxY -= deltaY;
+                    _complexWindow.MinX -= deltaX;
+                    _complexWindow.MaxX -= deltaX;
+                    _complexWindow.MinY -= deltaY;
+                    _complexWindow.MaxY -= deltaY;
+
+                    using (Bitmap tempbitmap = (Bitmap)_canvas.Clone())
+                    using (Graphics g = Graphics.FromImage(_canvas))
+                    {
+                        GraphicsUnit gu = GraphicsUnit.Pixel;
+                        g.FillRectangle(new SolidBrush(Color.SeaGreen), _canvas.GetBounds(ref gu));
+                        g.DrawImage(tempbitmap, (endPoint.X - _startPoint.X), (endPoint.Y - _startPoint.Y));
+                    }
 
                     Render();
                 }
@@ -544,33 +554,82 @@ namespace MandelbrotBrowser
         }
 
 
-        private void PictureBox_Paint(object sender, PaintEventArgs e)
+        /**************************************************************************
+        * Draws the current complex coordinates to the given graphics object
+        ***************************************************************************/
+        private void OverlayCoordinates(ref Graphics g)
         {
-            if (_isZooming)
-            {
-                // Draw the rectangle...
-                if (PictureBox.Image != null)
-                {
-                    if (_ZoomWindow != null && _ZoomWindow.Width > 0 && _ZoomWindow.Height > 0)
-                    {
-                        e.Graphics.FillRectangle(_ZoomSelectionBrush, _ZoomWindow);
-                    }
-                }
-                return;
-            }
-
-            string tlLabel = $"({_minX:0.####}, {_maxY:0.####})";
-            string brLabel = $"({_maxX:0.####}, {_minY:0.####})";
+            string tlLabel = $"({_complexWindow.MinX:0.####}, {_complexWindow.MaxY:0.####})";
+            string brLabel = $"({_complexWindow.MaxX:0.####}, {_complexWindow.MinY:0.####})";
 
             using (Brush brush = new SolidBrush(Color.White))
-            using (Font font = new Font("Calibri", 14f, FontStyle.Regular, GraphicsUnit.Pixel))
+            using (Font font = new Font("Tahoma", 12f, FontStyle.Regular, GraphicsUnit.Pixel))
             {
-                SizeF rightlabelsize = e.Graphics.MeasureString(brLabel, font);
+                SizeF rightlabelsize = g.MeasureString(brLabel, font);
 
-                e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
-                e.Graphics.DrawString(tlLabel, font, brush, 0, 0);
-                e.Graphics.DrawString(brLabel, font, brush, _Width - rightlabelsize.Width, _Height - rightlabelsize.Height);
+                g.DrawString(tlLabel, font, brush, 0, 0);
+                g.DrawString(brLabel, font, brush,
+                                    myPictureBox.Width - rightlabelsize.Width,
+                                    myPictureBox.Height - rightlabelsize.Height);
             }
         }
+
+
+        /**************************************************************************
+        * Paint Handler 
+        ***************************************************************************/
+        private void PictureBox_Paint(object sender, PaintEventArgs e)
+        {
+            // Draws the bitmap canvas to the picturebox.
+            e.Graphics.DrawImage(_canvas, 0, 0);
+
+            // If we are rendering, show a progress line.
+            // We can get the progress from the statusbar progress control.
+            if (_isRendering)
+            {
+                int perc = toolStripProgressBar.Value;
+                int Yline = (myPictureBox.Height * perc) / 100;
+                if (Yline >= myPictureBox.Height)
+                    Yline = myPictureBox.Height - 1;
+
+                e.Graphics.DrawLine(new Pen(Color.OrangeRed), 0, Yline, myPictureBox.Width - 1, Yline);
+            }
+
+            if (_isZooming)
+            {
+                // Draw the selection rectangle...
+                if (_ZoomWindow != null && _ZoomWindow.Width > 0 && _ZoomWindow.Height > 0)
+                {
+                    e.Graphics.DrawRectangle(_ZoomSelectionPen, _ZoomWindow);
+                }
+            }
+
+            // Overlay the current Mandelbrot coordinates
+            Graphics g = e.Graphics;
+            OverlayCoordinates(ref g);
+        }
     }
+
+    // Stores the rectangular plane that defines our Mandelbrot
+    // drawing plane.
+    public class MandelbrotPlane
+    {
+        public MandelbrotPlane()
+        {
+            MinX = -2.4;
+            MaxX = 1.0;
+            MinY = -1.8;
+            MaxY = 1.8;
+            MaxThreshold = 50;
+        }
+
+        public double MinX { get; set; }
+        public double MaxX { get; set; }
+        public double MinY { get; set; }
+        public double MaxY { get; set; }
+
+        // max iterations to test for inclusion in Mandelbrot set
+        public int MaxThreshold { get; set; }
+    }
+
 }

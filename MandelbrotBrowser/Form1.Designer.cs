@@ -28,7 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.PictureBox = new System.Windows.Forms.PictureBox();
+            this.myPictureBox = new System.Windows.Forms.PictureBox();
             this.labelHeader = new System.Windows.Forms.Label();
             this.statusStrip = new System.Windows.Forms.StatusStrip();
             this.toolStripProgressBar = new System.Windows.Forms.ToolStripProgressBar();
@@ -41,27 +41,27 @@
             this.textBoxThreshold = new System.Windows.Forms.TextBox();
             this.label2 = new System.Windows.Forms.Label();
             this.comboBoxPalette = new System.Windows.Forms.ComboBox();
-            ((System.ComponentModel.ISupportInitialize)(this.PictureBox)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.myPictureBox)).BeginInit();
             this.statusStrip.SuspendLayout();
             this.menuStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
-            // PictureBox
+            // myPictureBox
             // 
-            this.PictureBox.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            this.myPictureBox.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.PictureBox.BackColor = System.Drawing.Color.White;
-            this.PictureBox.Location = new System.Drawing.Point(133, 63);
-            this.PictureBox.Name = "PictureBox";
-            this.PictureBox.Size = new System.Drawing.Size(640, 508);
-            this.PictureBox.TabIndex = 0;
-            this.PictureBox.TabStop = false;
-            this.PictureBox.Paint += new System.Windows.Forms.PaintEventHandler(this.PictureBox_Paint);
-            this.PictureBox.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.PictureBox_MouseDoubleClick);
-            this.PictureBox.MouseDown += new System.Windows.Forms.MouseEventHandler(this.PictureBox_MouseDown);
-            this.PictureBox.MouseMove += new System.Windows.Forms.MouseEventHandler(this.PictureBox_MouseMove);
-            this.PictureBox.MouseUp += new System.Windows.Forms.MouseEventHandler(this.PictureBox_MouseUp);
+            this.myPictureBox.BackColor = System.Drawing.Color.Black;
+            this.myPictureBox.Location = new System.Drawing.Point(133, 63);
+            this.myPictureBox.Name = "myPictureBox";
+            this.myPictureBox.Size = new System.Drawing.Size(480, 360);
+            this.myPictureBox.TabIndex = 0;
+            this.myPictureBox.TabStop = false;
+            this.myPictureBox.Paint += new System.Windows.Forms.PaintEventHandler(this.PictureBox_Paint);
+            this.myPictureBox.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.PictureBox_MouseDoubleClick);
+            this.myPictureBox.MouseDown += new System.Windows.Forms.MouseEventHandler(this.PictureBox_MouseDown);
+            this.myPictureBox.MouseMove += new System.Windows.Forms.MouseEventHandler(this.PictureBox_MouseMove);
+            this.myPictureBox.MouseUp += new System.Windows.Forms.MouseEventHandler(this.PictureBox_MouseUp);
             // 
             // labelHeader
             // 
@@ -72,7 +72,7 @@
             this.labelHeader.ForeColor = System.Drawing.Color.White;
             this.labelHeader.Location = new System.Drawing.Point(12, 24);
             this.labelHeader.Name = "labelHeader";
-            this.labelHeader.Size = new System.Drawing.Size(761, 36);
+            this.labelHeader.Size = new System.Drawing.Size(601, 36);
             this.labelHeader.TabIndex = 1;
             this.labelHeader.Text = "Mandelbot";
             this.labelHeader.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -82,9 +82,9 @@
             this.statusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.toolStripProgressBar,
             this.statusLabel});
-            this.statusStrip.Location = new System.Drawing.Point(0, 608);
+            this.statusStrip.Location = new System.Drawing.Point(0, 458);
             this.statusStrip.Name = "statusStrip";
-            this.statusStrip.Size = new System.Drawing.Size(785, 22);
+            this.statusStrip.Size = new System.Drawing.Size(625, 22);
             this.statusStrip.TabIndex = 2;
             this.statusStrip.Text = "statusStrip1";
             // 
@@ -97,14 +97,14 @@
             // 
             this.statusLabel.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
             this.statusLabel.Name = "statusLabel";
-            this.statusLabel.Size = new System.Drawing.Size(668, 17);
+            this.statusLabel.Size = new System.Drawing.Size(508, 17);
             this.statusLabel.Spring = true;
             this.statusLabel.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 
             // buttonRender
             // 
             this.buttonRender.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonRender.Location = new System.Drawing.Point(646, 578);
+            this.buttonRender.Location = new System.Drawing.Point(486, 428);
             this.buttonRender.Name = "buttonRender";
             this.buttonRender.Size = new System.Drawing.Size(127, 27);
             this.buttonRender.TabIndex = 3;
@@ -118,7 +118,7 @@
             this.fileToolStripMenuItem});
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
             this.menuStrip1.Name = "menuStrip1";
-            this.menuStrip1.Size = new System.Drawing.Size(785, 24);
+            this.menuStrip1.Size = new System.Drawing.Size(625, 24);
             this.menuStrip1.TabIndex = 4;
             this.menuStrip1.Text = "menuStrip1";
             // 
@@ -131,7 +131,7 @@
             // buttonReset
             // 
             this.buttonReset.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonReset.Location = new System.Drawing.Point(513, 577);
+            this.buttonReset.Location = new System.Drawing.Point(353, 427);
             this.buttonReset.Name = "buttonReset";
             this.buttonReset.Size = new System.Drawing.Size(127, 27);
             this.buttonReset.TabIndex = 5;
@@ -182,7 +182,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(785, 630);
+            this.ClientSize = new System.Drawing.Size(625, 480);
             this.Controls.Add(this.comboBoxPalette);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.textBoxThreshold);
@@ -192,7 +192,7 @@
             this.Controls.Add(this.statusStrip);
             this.Controls.Add(this.menuStrip1);
             this.Controls.Add(this.labelHeader);
-            this.Controls.Add(this.PictureBox);
+            this.Controls.Add(this.myPictureBox);
             this.MainMenuStrip = this.menuStrip1;
             this.Name = "Form1";
             this.Text = "Mandelbrot Browser";
@@ -200,7 +200,7 @@
             this.Shown += new System.EventHandler(this.Form1_Shown);
             this.ResizeEnd += new System.EventHandler(this.Form1_ResizeEnd);
             this.Resize += new System.EventHandler(this.Form1_Resize);
-            ((System.ComponentModel.ISupportInitialize)(this.PictureBox)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.myPictureBox)).EndInit();
             this.statusStrip.ResumeLayout(false);
             this.statusStrip.PerformLayout();
             this.menuStrip1.ResumeLayout(false);
@@ -212,7 +212,7 @@
 
         #endregion
 
-        private System.Windows.Forms.PictureBox PictureBox;
+        private System.Windows.Forms.PictureBox myPictureBox;
         private System.Windows.Forms.Label labelHeader;
         private System.Windows.Forms.StatusStrip statusStrip;
         private System.Windows.Forms.Button buttonRender;
