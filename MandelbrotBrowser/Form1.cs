@@ -35,10 +35,8 @@ namespace MandelbrotBrowser
         private Rectangle _ZoomWindow;
         private Pen _ZoomSelectionPen = new Pen(Color.Gold);
 
-
         private int _palettesize = 256;
         private List<Color> _colourtable;
-
 
 
         /**************************************************************************
