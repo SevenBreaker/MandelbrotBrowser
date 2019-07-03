@@ -65,7 +65,7 @@ namespace MandelbrotBrowser
         }
         
         /// <summary>
-        /// 
+        /// Called when form is first loaded.
         /// </summary>
         private void Form1_Load(object sender, EventArgs e)
         {
